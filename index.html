@@ -15,6 +15,13 @@
   .locate-btn { width: 100%; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 12px; background: #1a73e8; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; }
   .locate-btn:hover { background: #1557b0; }
   .locate-btn:disabled { background: #a0b8e0; cursor: not-allowed; }
+  .radius-row { margin-top: 1.25rem; }
+  .radius-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .radius-label span { font-size: 13px; color: #666; }
+  .radius-label strong { font-size: 14px; color: #1a1a1a; }
+  input[type=range] { width: 100%; accent-color: #1a73e8; height: 4px; cursor: pointer; }
+  .radius-ticks { display: flex; justify-content: space-between; margin-top: 4px; }
+  .radius-ticks span { font-size: 11px; color: #bbb; }
   .status { font-size: 13px; color: #666; text-align: center; margin: 1rem 0; min-height: 20px; }
   .status.error { color: #d32f2f; }
   .fuel-selector { display: flex; gap: 6px; margin-bottom: 1rem; }
@@ -45,6 +52,9 @@
   .maps-link { font-size: 12px; color: #1a73e8; text-decoration: none; }
   .maps-link:hover { text-decoration: underline; }
   .results-status { font-size: 12px; color: #aaa; text-align: center; margin-top: 1rem; padding-bottom: 1rem; }
+  .radius-results-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .radius-results-label { font-size: 13px; color: #666; }
+  .radius-results-label strong { color: #1a1a1a; }
   #results-view { display: none; }
 </style>
 </head>
@@ -62,6 +72,20 @@
     <button class="locate-btn" id="locateBtn" onclick="findGas()">
       📍 Find cheapest gas near me
     </button>
+    <div class="radius-row">
+      <div class="radius-label">
+        <span>Search radius</span>
+        <strong id="radiusDisplay">5.0 miles</strong>
+      </div>
+      <input type="range" id="radiusSlider" min="0.5" max="10" step="0.5" value="5" oninput="updateRadiusDisplay(this.value)">
+      <div class="radius-ticks">
+        <span>0.5 mi</span>
+        <span>2.5 mi</span>
+        <span>5 mi</span>
+        <span>7.5 mi</span>
+        <span>10 mi</span>
+      </div>
+    </div>
     <p class="status" id="status"></p>
   </div>
  
@@ -70,6 +94,10 @@
     <div class="refresh-row">
       <button class="refresh-btn" onclick="refresh()">🔄 Refresh</button>
       <span class="last-updated" id="lastUpdated"></span>
+    </div>
+    <div class="radius-results-row">
+      <span class="radius-results-label">Within <strong id="radiusResultsLabel">5.0 miles</strong></span>
+      <button class="filter-btn" onclick="changeRadius()" style="font-size:12px; padding: 5px 12px;">Change radius</button>
     </div>
     <div class="filters">
       <button class="filter-btn active" id="sortPrice" onclick="setSort('price',this)">↑ Cheapest first</button>
@@ -82,9 +110,21 @@
  
 <script>
 const API_KEY = 'AIzaSyCppmZPSsry9rEW2EuEJ5oC7ERCkQGf2fo';
-let userLat, userLng, allStations = [], currentSort = 'price', currentFuel = 0;
+let userLat, userLng, allStations = [], currentSort = 'price', currentFuel = 0, currentRadius = 5;
 const fuelTypes = ['Regular', 'Midgrade', 'Premium', 'Diesel'];
 const fuelFields = ['regular', 'midgrade', 'premium', 'diesel'];
+ 
+function updateRadiusDisplay(val) {
+  currentRadius = parseFloat(val);
+  document.getElementById('radiusDisplay').textContent = parseFloat(val).toFixed(1) + ' miles';
+}
+ 
+function changeRadius() {
+  document.getElementById('results-view').style.display = 'none';
+  document.getElementById('main-view').style.display = 'block';
+  document.getElementById('radiusSlider').value = currentRadius;
+  document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
+}
  
 function setSort(type, btn) {
   currentSort = type;
@@ -103,6 +143,8 @@ function setFuel(idx, btn) {
 function refresh() {
   document.getElementById('results-view').style.display = 'none';
   document.getElementById('main-view').style.display = 'block';
+  document.getElementById('radiusSlider').value = currentRadius;
+  document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
   findGas();
 }
  
@@ -145,12 +187,13 @@ function findGas() {
 }
  
 async function fetchStations() {
+  const radiusMeters = currentRadius * 1609.34;
   const url = 'https://places.googleapis.com/v1/places:searchNearby';
   const body = {
     includedTypes: ['gas_station'],
     maxResultCount: 20,
     locationRestriction: {
-      circle: { center: { latitude: userLat, longitude: userLng }, radius: 8000 }
+      circle: { center: { latitude: userLat, longitude: userLng }, radius: radiusMeters }
     }
   };
   const resp = await fetch(url, {
@@ -166,7 +209,7 @@ async function fetchStations() {
   if (data.error) throw new Error(data.error.message);
   if (!data.places || data.places.length === 0) {
     document.getElementById('status').className = 'status error';
-    document.getElementById('status').textContent = 'No gas stations found nearby.';
+    document.getElementById('status').textContent = 'No gas stations found in this radius. Try increasing the search radius.';
     document.getElementById('locateBtn').disabled = false;
     return;
   }
@@ -193,6 +236,7 @@ async function fetchStations() {
       prices
     };
   });
+  document.getElementById('radiusResultsLabel').textContent = currentRadius.toFixed(1) + ' miles';
   buildFuelSelector();
   document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   document.getElementById('main-view').style.display = 'none';
