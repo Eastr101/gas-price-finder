@@ -67,7 +67,7 @@
       <p>Cheapest fuel near you, right now</p>
     </div>
   </div>
-
+ 
   <div id="main-view">
     <button class="locate-btn" id="locateBtn" onclick="findGas()">
       📍 Find cheapest gas near me
@@ -88,7 +88,7 @@
     </div>
     <p class="status" id="status"></p>
   </div>
-
+ 
   <div id="results-view">
     <div class="fuel-selector" id="fuelSelector"></div>
     <div class="refresh-row">
@@ -107,39 +107,41 @@
     <p class="results-status" id="resultsStatus"></p>
   </div>
 </div>
-
+ 
 <script>
 const API_KEY = 'AIzaSyCppmZPSsry9rEW2EuEJ5oC7ERCkQGf2fo';
 let userLat, userLng, allStations = [], currentSort = 'price', currentFuel = 0, currentRadius = 5;
 const fuelTypes = ['Regular', 'Midgrade', 'Premium', 'Diesel'];
 const fuelFields = ['regular', 'midgrade', 'premium', 'diesel'];
-
+ 
 function updateRadiusDisplay(val) {
   currentRadius = parseFloat(val);
   document.getElementById('radiusDisplay').textContent = parseFloat(val).toFixed(1) + ' miles';
 }
-
+ 
 function changeRadius() {
   document.getElementById('results-view').style.display = 'none';
   document.getElementById('main-view').style.display = 'block';
   document.getElementById('radiusSlider').value = currentRadius;
   document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
+  document.getElementById('locateBtn').disabled = false;
+  document.getElementById('status').textContent = '';
 }
-
+ 
 function setSort(type, btn) {
   currentSort = type;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderStations();
 }
-
+ 
 function setFuel(idx, btn) {
   currentFuel = idx;
   document.querySelectorAll('.fuel-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderStations();
 }
-
+ 
 function refresh() {
   document.getElementById('results-view').style.display = 'none';
   document.getElementById('main-view').style.display = 'block';
@@ -147,7 +149,7 @@ function refresh() {
   document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
   findGas();
 }
-
+ 
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -155,7 +157,7 @@ function haversine(lat1, lng1, lat2, lng2) {
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-
+ 
 function findGas() {
   const btn = document.getElementById('locateBtn');
   const status = document.getElementById('status');
@@ -185,7 +187,7 @@ function findGas() {
     btn.disabled = false;
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
-
+ 
 async function fetchStations() {
   const radiusMeters = currentRadius * 1609.34;
   const url = 'https://places.googleapis.com/v1/places:searchNearby';
@@ -243,14 +245,14 @@ async function fetchStations() {
   document.getElementById('results-view').style.display = 'block';
   renderStations();
 }
-
+ 
 function buildFuelSelector() {
   document.getElementById('fuelSelector').innerHTML = fuelTypes.map((t, i) => {
     const has = allStations.some(s => s.prices[fuelFields[i]] !== null);
     return `<button class="fuel-btn${i===0?' active':''}" onclick="setFuel(${i},this)"${!has?' style="opacity:0.45"':''}>${t}</button>`;
   }).join('');
 }
-
+ 
 function renderStations() {
   const field = fuelFields[currentFuel];
   let stations = [...allStations];
@@ -296,3 +298,4 @@ function renderStations() {
 </script>
 </body>
 </html>
+ 
