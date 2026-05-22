@@ -2,48 +2,112 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gas Price Finder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>⛽ Gas Prices</title>
+ 
+<!-- PWA / Home screen meta tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gas Prices">
+<meta name="theme-color" content="#0f1f3d">
+ 
+<!-- Inline SVG favicon as data URI -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230f1f3d'/><text y='68' x='50' text-anchor='middle' font-size='58'>⛽</text></svg>">
+ 
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; padding: 1rem; }
-  #app { max-width: 480px; margin: 0 auto; }
-  .header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; padding: 1rem 0; border-bottom: 1px solid #e0e0d8; }
-  .header-icon { font-size: 28px; }
-  .header h1 { font-size: 20px; font-weight: 600; color: #1a1a1a; }
-  .header p { font-size: 13px; color: #888; margin-top: 2px; }
-  .locate-btn { width: 100%; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 12px; background: #1a73e8; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; }
-  .locate-btn:hover { background: #1557b0; }
-  .locate-btn:disabled { background: #a0b8e0; cursor: not-allowed; }
-  .radius-row { margin-top: 1.25rem; }
-  .radius-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .radius-label span { font-size: 13px; color: #666; }
-  .radius-label strong { font-size: 14px; color: #1a1a1a; }
-  input[type=range] { width: 100%; accent-color: #1a73e8; height: 4px; cursor: pointer; }
-  .radius-ticks { display: flex; justify-content: space-between; margin-top: 4px; }
-  .radius-ticks span { font-size: 11px; color: #bbb; }
-  .status { font-size: 13px; color: #666; text-align: center; margin: 1rem 0; min-height: 20px; }
-  .status.error { color: #d32f2f; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; }
+ 
+  /* ── Splash screen ── */
+  #splash {
+    position: fixed; inset: 0; z-index: 100;
+    background: linear-gradient(160deg, #0f1f3d 0%, #1a3a6e 60%, #0d2a52 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; transition: opacity 0.5s ease;
+  }
+  #splash.hidden { opacity: 0; pointer-events: none; }
+  .splash-icon { font-size: 72px; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  .splash-title { font-size: 28px; font-weight: 700; color: white; letter-spacing: -0.5px; }
+  .splash-sub { font-size: 14px; color: rgba(255,255,255,0.55); }
+  .splash-spinner { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; margin-top: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+ 
+  /* ── App wrapper ── */
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+ 
+  /* ── Landing screen ── */
+  #main-view {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 2rem 1.5rem 3rem;
+    background: linear-gradient(160deg, #0f1f3d 0%, #1a3a6e 60%, #0d2a52 100%);
+    min-height: 100vh;
+  }
+  .landing-top { display: flex; flex-direction: column; align-items: center; margin-bottom: 2.5rem; gap: 10px; }
+  .landing-icon { font-size: 64px; }
+  .landing-title { font-size: 26px; font-weight: 700; color: white; letter-spacing: -0.5px; }
+  .landing-sub { font-size: 14px; color: rgba(255,255,255,0.55); }
+ 
+  .locate-btn {
+    width: 100%; padding: 16px; font-size: 17px; font-weight: 700;
+    border-radius: 14px; background: #f5a623; color: #1a1a1a;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 4px 20px rgba(245,166,35,0.35);
+  }
+  .locate-btn:active { transform: scale(0.98); }
+  .locate-btn:disabled { background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.5); box-shadow: none; cursor: not-allowed; }
+ 
+  .btn-spinner { width: 18px; height: 18px; border: 2.5px solid rgba(0,0,0,0.2); border-top-color: #1a1a1a; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+  .btn-spinner.visible { display: block; }
+ 
+  /* Radius slider */
+  .radius-row { margin-top: 1.75rem; }
+  .radius-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .radius-label span { font-size: 13px; color: rgba(255,255,255,0.6); }
+  .radius-label strong { font-size: 14px; color: white; }
+  input[type=range] { width: 100%; accent-color: #f5a623; cursor: pointer; }
+  .radius-ticks { display: flex; justify-content: space-between; margin-top: 5px; }
+  .radius-ticks span { font-size: 11px; color: rgba(255,255,255,0.3); }
+ 
+  .status { font-size: 13px; color: rgba(255,255,255,0.6); text-align: center; margin: 1rem 0; min-height: 20px; }
+  .status.error { color: #ff6b6b; }
+ 
+  /* ── Results screen ── */
+  #results-view { display: none; flex-direction: column; padding: 1rem 1rem 2rem; background: #f5f5f0; min-height: 100vh; }
+ 
+  .results-header { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0 1rem; border-bottom: 1px solid #e0e0d8; margin-bottom: 1rem; }
+  .results-header-left { display: flex; align-items: center; gap: 8px; }
+  .results-header-icon { font-size: 20px; }
+  .results-header-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .refresh-btn { font-size: 12px; color: #888; background: none; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; padding: 5px 12px; display: flex; align-items: center; gap: 4px; }
+  .refresh-btn:active { background: #eee; }
+ 
   .fuel-selector { display: flex; gap: 6px; margin-bottom: 1rem; }
   .fuel-btn { flex: 1; font-size: 13px; padding: 7px 4px; border-radius: 8px; border: 1px solid #ddd; background: white; color: #555; cursor: pointer; text-align: center; transition: all 0.15s; }
   .fuel-btn.active { background: #fff3e0; color: #e65100; border-color: #ffb74d; font-weight: 600; }
+ 
+  .radius-results-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .radius-results-label { font-size: 13px; color: #666; }
+  .radius-results-label strong { color: #1a1a1a; }
+  .change-radius-btn { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; }
+ 
+  /* Average banner */
+  .avg-banner { background: linear-gradient(135deg, #0f1f3d, #1a3a6e); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+  .avg-left { display: flex; flex-direction: column; gap: 2px; }
+  .avg-label { font-size: 11px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.5px; }
+  .avg-price { font-size: 28px; font-weight: 700; color: white; line-height: 1.1; }
+  .avg-fuel-label { font-size: 12px; color: rgba(255,255,255,0.5); }
+  .avg-right { text-align: right; }
+  .avg-based-on { font-size: 12px; color: rgba(255,255,255,0.5); }
+  .avg-range { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+ 
   .filters { display: flex; gap: 8px; margin-bottom: 1rem; }
   .filter-btn { font-size: 12px; padding: 6px 14px; border-radius: 20px; border: 1px solid #ddd; background: white; color: #666; cursor: pointer; transition: all 0.15s; }
   .filter-btn.active { background: #e8f0fe; color: #1a73e8; border-color: #a8c0f5; font-weight: 600; }
-  .refresh-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-  .refresh-btn { font-size: 13px; color: #888; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0; }
-  .refresh-btn:hover { color: #333; }
-  .last-updated { font-size: 12px; color: #aaa; }
- 
-  /* Average banner */
-  .avg-banner { background: white; border: 1px solid #e0e0d8; border-radius: 12px; padding: 0.9rem 1.25rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
-  .avg-left { display: flex; flex-direction: column; gap: 2px; }
-  .avg-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.4px; }
-  .avg-price { font-size: 26px; font-weight: 700; color: #1a1a1a; line-height: 1.1; }
-  .avg-fuel-label { font-size: 12px; color: #aaa; }
-  .avg-right { text-align: right; }
-  .avg-based-on { font-size: 12px; color: #999; }
-  .avg-range { font-size: 12px; color: #666; margin-top: 3px; }
+  .last-updated { font-size: 11px; color: #bbb; margin-bottom: 0.75rem; }
  
   .station-list { display: flex; flex-direction: column; gap: 10px; }
   .station-card { background: white; border: 1px solid #e8e8e0; border-radius: 12px; padding: 1rem 1.25rem; position: relative; }
@@ -56,40 +120,48 @@
   .price { font-size: 24px; font-weight: 700; color: #1a1a1a; line-height: 1; }
   .price-label { font-size: 11px; color: #aaa; margin-top: 2px; }
   .no-price { font-size: 12px; color: #bbb; font-style: italic; text-align: right; }
+  .vs-avg { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin-top: 6px; display: inline-block; }
+  .vs-avg.below { background: #e8f5e9; color: #2e7d32; }
+  .vs-avg.above { background: #fce8e6; color: #c62828; }
+  .vs-avg.at { background: #f5f5f5; color: #777; }
   .station-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0e8; }
   .distance { font-size: 12px; color: #888; }
   .bottom-right { display: flex; align-items: center; gap: 12px; }
   .rating { font-size: 12px; color: #888; }
   .maps-link { font-size: 12px; color: #1a73e8; text-decoration: none; }
-  .maps-link:hover { text-decoration: underline; }
  
-  /* vs average tag */
-  .vs-avg { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin-top: 5px; display: inline-block; }
-  .vs-avg.below { background: #e8f5e9; color: #2e7d32; }
-  .vs-avg.above { background: #fce8e6; color: #c62828; }
-  .vs-avg.at { background: #f5f5f5; color: #777; }
+  /* No-price toggle */
+  .no-price-toggle { text-align: center; margin-top: 10px; }
+  .no-price-toggle button { font-size: 13px; color: #888; background: none; border: 1px solid #ddd; border-radius: 20px; padding: 7px 16px; cursor: pointer; background: white; }
+  .no-price-toggle button:active { background: #f0f0f0; }
  
   .results-status { font-size: 12px; color: #aaa; text-align: center; margin-top: 1rem; padding-bottom: 1rem; }
-  .radius-results-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-  .radius-results-label { font-size: 13px; color: #666; }
-  .radius-results-label strong { color: #1a1a1a; }
-  #results-view { display: none; }
 </style>
 </head>
 <body>
-<div id="app">
-  <div class="header">
-    <div class="header-icon">⛽</div>
-    <div>
-      <h1>Gas Price Finder</h1>
-      <p>Cheapest fuel near you, right now</p>
-    </div>
-  </div>
  
+<!-- Splash screen -->
+<div id="splash">
+  <div class="splash-icon">⛽</div>
+  <div class="splash-title">Gas Prices</div>
+  <div class="splash-sub">Finding the cheapest fuel near you</div>
+  <div class="splash-spinner"></div>
+</div>
+ 
+<div id="app">
+  <!-- Landing screen -->
   <div id="main-view">
+    <div class="landing-top">
+      <div class="landing-icon">⛽</div>
+      <div class="landing-title">Gas Price Finder</div>
+      <div class="landing-sub">Cheapest fuel near you, right now</div>
+    </div>
+ 
     <button class="locate-btn" id="locateBtn" onclick="handleMainButton()">
-      📍 Find cheapest gas near me
+      <div class="btn-spinner" id="btnSpinner"></div>
+      <span id="btnText">📍 Find cheapest gas near me</span>
     </button>
+ 
     <div class="radius-row">
       <div class="radius-label">
         <span>Search radius</span>
@@ -107,15 +179,22 @@
     <p class="status" id="status"></p>
   </div>
  
+  <!-- Results screen -->
   <div id="results-view">
-    <div class="fuel-selector" id="fuelSelector"></div>
-    <div class="refresh-row">
+    <div class="results-header">
+      <div class="results-header-left">
+        <span class="results-header-icon">⛽</span>
+        <span class="results-header-title">Gas Prices</span>
+      </div>
       <button class="refresh-btn" onclick="refresh()">🔄 Refresh</button>
-      <span class="last-updated" id="lastUpdated"></span>
     </div>
+ 
+    <div class="fuel-selector" id="fuelSelector"></div>
+    <div class="last-updated" id="lastUpdated"></div>
+ 
     <div class="radius-results-row">
       <span class="radius-results-label">Within <strong id="radiusResultsLabel">5.0 miles</strong></span>
-      <button class="filter-btn" onclick="changeRadius()">Change radius</button>
+      <button class="change-radius-btn" onclick="changeRadius()">Change radius</button>
     </div>
  
     <!-- Average banner -->
@@ -135,7 +214,13 @@
       <button class="filter-btn active" id="sortPrice" onclick="setSort('price',this)">↑ Cheapest first</button>
       <button class="filter-btn" id="sortDist" onclick="setSort('distance',this)">📍 Nearest first</button>
     </div>
+ 
     <div class="station-list" id="stationList"></div>
+    <div class="no-price-toggle" id="noPriceToggle" style="display:none;">
+      <button onclick="toggleNoPriceStations()">
+        <span id="noPriceToggleText"></span>
+      </button>
+    </div>
     <p class="results-status" id="resultsStatus"></p>
   </div>
 </div>
@@ -143,9 +228,41 @@
 <script>
 const API_KEY = 'AIzaSyCppmZPSsry9rEW2EuEJ5oC7ERCkQGf2fo';
 let userLat = null, userLng = null, allStations = [], currentSort = 'price', currentFuel = 0, currentRadius = 5;
-let locationKnown = false;
+let locationKnown = false, showNoPriceStations = false, wakeLock = null;
 const fuelTypes = ['Regular', 'Midgrade', 'Premium', 'Diesel'];
 const fuelFields = ['regular', 'midgrade', 'premium', 'diesel'];
+ 
+// ── Splash screen ──
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('hidden');
+    setTimeout(() => document.getElementById('splash').remove(), 500);
+  }, 1800);
+});
+ 
+// ── Wake lock ──
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch(e) { /* silently ignore if not supported */ }
+}
+document.addEventListener('visibilitychange', async () => {
+  if (wakeLock !== null && document.visibilityState === 'visible') {
+    await requestWakeLock();
+  }
+});
+ 
+// ── UI helpers ──
+function setButtonLoading(loading) {
+  const btn = document.getElementById('locateBtn');
+  const spinner = document.getElementById('btnSpinner');
+  const text = document.getElementById('btnText');
+  btn.disabled = loading;
+  spinner.classList.toggle('visible', loading);
+  if (loading) text.textContent = 'Searching...';
+}
  
 function updateRadiusDisplay(val) {
   currentRadius = parseFloat(val);
@@ -163,12 +280,13 @@ function handleMainButton() {
  
 function changeRadius() {
   document.getElementById('results-view').style.display = 'none';
-  document.getElementById('main-view').style.display = 'block';
+  document.getElementById('main-view').style.display = 'flex';
   document.getElementById('radiusSlider').value = currentRadius;
   document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
   const btn = document.getElementById('locateBtn');
   btn.disabled = false;
-  btn.textContent = '📍 Search this radius';
+  document.getElementById('btnText').textContent = '📍 Search this radius';
+  document.getElementById('btnSpinner').classList.remove('visible');
   document.getElementById('status').textContent = '';
   document.getElementById('status').className = 'status';
 }
@@ -184,23 +302,31 @@ function setFuel(idx, btn) {
   currentFuel = idx;
   document.querySelectorAll('.fuel-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  showNoPriceStations = false;
   renderStations();
   updateAverageBanner();
+}
+ 
+function toggleNoPriceStations() {
+  showNoPriceStations = !showNoPriceStations;
+  renderStations();
 }
  
 function refresh() {
   locationKnown = false;
   document.getElementById('results-view').style.display = 'none';
-  document.getElementById('main-view').style.display = 'block';
+  document.getElementById('main-view').style.display = 'flex';
   document.getElementById('radiusSlider').value = currentRadius;
   document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
   const btn = document.getElementById('locateBtn');
   btn.disabled = false;
-  btn.textContent = '📍 Find cheapest gas near me';
+  document.getElementById('btnText').textContent = '📍 Find cheapest gas near me';
+  document.getElementById('btnSpinner').classList.remove('visible');
   document.getElementById('status').textContent = '';
   document.getElementById('status').className = 'status';
 }
  
+// ── Geolocation ──
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -210,15 +336,14 @@ function haversine(lat1, lng1, lat2, lng2) {
 }
  
 function findGas() {
-  const btn = document.getElementById('locateBtn');
   const status = document.getElementById('status');
-  btn.disabled = true;
+  setButtonLoading(true);
   status.className = 'status';
   status.textContent = 'Getting your location...';
   if (!navigator.geolocation) {
     status.className = 'status error';
     status.textContent = 'Geolocation is not supported by your browser.';
-    btn.disabled = false;
+    setButtonLoading(false);
     return;
   }
   navigator.geolocation.getCurrentPosition(async pos => {
@@ -226,24 +351,24 @@ function findGas() {
     userLng = pos.coords.longitude;
     locationKnown = true;
     status.textContent = 'Searching for nearby gas stations...';
+    await requestWakeLock();
     try { await fetchStations(); }
     catch(e) {
       console.error(e);
       status.className = 'status error';
       status.textContent = 'Error: ' + (e.message || 'Could not fetch stations. Please try again.');
-      btn.disabled = false;
+      setButtonLoading(false);
     }
   }, err => {
     status.className = 'status error';
     status.textContent = 'Location access denied. Please allow location access and try again.';
-    btn.disabled = false;
+    setButtonLoading(false);
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
  
 async function searchWithCurrentLocation() {
-  const btn = document.getElementById('locateBtn');
   const status = document.getElementById('status');
-  btn.disabled = true;
+  setButtonLoading(true);
   status.className = 'status';
   status.textContent = 'Searching with new radius...';
   try { await fetchStations(); }
@@ -251,10 +376,11 @@ async function searchWithCurrentLocation() {
     console.error(e);
     status.className = 'status error';
     status.textContent = 'Error: ' + (e.message || 'Could not fetch stations. Please try again.');
-    btn.disabled = false;
+    setButtonLoading(false);
   }
 }
  
+// ── API fetch ──
 async function fetchStations() {
   const radiusMeters = currentRadius * 1609.34;
   const url = 'https://places.googleapis.com/v1/places:searchNearby';
@@ -279,7 +405,7 @@ async function fetchStations() {
   if (!data.places || data.places.length === 0) {
     document.getElementById('status').className = 'status error';
     document.getElementById('status').textContent = 'No gas stations found in this radius. Try increasing the search radius.';
-    document.getElementById('locateBtn').disabled = false;
+    setButtonLoading(false);
     return;
   }
   allStations = data.places.map(p => {
@@ -299,41 +425,37 @@ async function fetchStations() {
       name: p.displayName?.text || 'Gas Station',
       address: (p.formattedAddress || '').split(',').slice(0,2).join(','),
       lat: loc.latitude, lng: loc.longitude,
-      distance: dist,
-      rating: p.rating || null,
+      distance: dist, rating: p.rating || null,
       mapsUrl: p.googleMapsUri || `https://maps.google.com/?q=${loc.latitude},${loc.longitude}`,
       prices
     };
   });
  
+  showNoPriceStations = false;
   document.getElementById('radiusResultsLabel').textContent = currentRadius.toFixed(1) + ' miles';
-  const btn = document.getElementById('locateBtn');
-  btn.textContent = '📍 Find cheapest gas near me';
+  document.getElementById('btnText').textContent = '📍 Find cheapest gas near me';
   buildFuelSelector();
   updateAverageBanner();
-  document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('lastUpdated').textContent = '🕐 Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   document.getElementById('main-view').style.display = 'none';
-  document.getElementById('results-view').style.display = 'block';
+  document.getElementById('results-view').style.display = 'flex';
+  setButtonLoading(false);
   renderStations();
 }
  
+// ── Average banner ──
 function calculateAverage() {
   const field = fuelFields[currentFuel];
   const priced = allStations.filter(s => s.prices[field] !== null).map(s => s.prices[field]);
   if (priced.length === 0) return null;
   const avg = priced.reduce((a, b) => a + b, 0) / priced.length;
-  const min = Math.min(...priced);
-  const max = Math.max(...priced);
-  return { avg, min, max, count: priced.length };
+  return { avg, min: Math.min(...priced), max: Math.max(...priced), count: priced.length };
 }
  
 function updateAverageBanner() {
   const banner = document.getElementById('avgBanner');
   const stats = calculateAverage();
-  if (!stats) {
-    banner.style.display = 'none';
-    return;
-  }
+  if (!stats) { banner.style.display = 'none'; return; }
   banner.style.display = 'flex';
   document.getElementById('avgPrice').textContent = '$' + stats.avg.toFixed(2);
   document.getElementById('avgFuelLabel').textContent = fuelTypes[currentFuel];
@@ -341,6 +463,7 @@ function updateAverageBanner() {
   document.getElementById('avgRange').textContent = `Range: $${stats.min.toFixed(2)} – $${stats.max.toFixed(2)}`;
 }
  
+// ── Fuel selector ──
 function buildFuelSelector() {
   document.getElementById('fuelSelector').innerHTML = fuelTypes.map((t, i) => {
     const has = allStations.some(s => s.prices[fuelFields[i]] !== null);
@@ -348,6 +471,7 @@ function buildFuelSelector() {
   }).join('');
 }
  
+// ── Render stations ──
 function renderStations() {
   const field = fuelFields[currentFuel];
   const stats = calculateAverage();
@@ -361,25 +485,22 @@ function renderStations() {
     stations.sort((a,b) => a.distance - b.distance);
   }
  
-  const pricedCount = stations.filter(s => s.prices[field] !== null).length;
+  const pricedStations = stations.filter(s => s.prices[field] !== null);
+  const noPriceStations = stations.filter(s => s.prices[field] === null);
+  const visibleStations = showNoPriceStations ? stations : pricedStations;
  
-  document.getElementById('stationList').innerHTML = stations.map((s, i) => {
+  document.getElementById('stationList').innerHTML = visibleStations.map((s, i) => {
     const isCheapest = i === 0 && s.prices[field] !== null && currentSort === 'price';
     const price = s.prices[field];
     const dist = s.distance < 0.2 ? (s.distance * 5280).toFixed(0) + ' ft' : s.distance.toFixed(1) + ' mi';
  
-    // vs average tag
     let vsAvgHtml = '';
     if (price !== null && stats) {
       const diff = price - stats.avg;
       const absDiff = Math.abs(diff).toFixed(2);
-      if (Math.abs(diff) < 0.01) {
-        vsAvgHtml = `<span class="vs-avg at">≈ Area average</span>`;
-      } else if (diff < 0) {
-        vsAvgHtml = `<span class="vs-avg below">💰 $${absDiff} below average</span>`;
-      } else {
-        vsAvgHtml = `<span class="vs-avg above">⬆ $${absDiff} above average</span>`;
-      }
+      if (Math.abs(diff) < 0.01) vsAvgHtml = `<span class="vs-avg at">≈ Area average</span>`;
+      else if (diff < 0) vsAvgHtml = `<span class="vs-avg below">💰 $${absDiff} below average</span>`;
+      else vsAvgHtml = `<span class="vs-avg above">⬆ $${absDiff} above average</span>`;
     }
  
     return `<div class="station-card${isCheapest?' cheapest':''}">
@@ -406,10 +527,22 @@ function renderStations() {
     </div>`;
   }).join('');
  
+  // No-price toggle
+  const toggle = document.getElementById('noPriceToggle');
+  const toggleText = document.getElementById('noPriceToggleText');
+  if (noPriceStations.length > 0) {
+    toggle.style.display = 'block';
+    toggleText.textContent = showNoPriceStations
+      ? `Hide ${noPriceStations.length} station${noPriceStations.length !== 1 ? 's' : ''} with no price data`
+      : `Show ${noPriceStations.length} more station${noPriceStations.length !== 1 ? 's' : ''} (no price data)`;
+  } else {
+    toggle.style.display = 'none';
+  }
+ 
   document.getElementById('resultsStatus').textContent =
-    pricedCount === 0
+    pricedStations.length === 0
       ? `${stations.length} stations found — live prices not yet available in this area. Try refreshing.`
-      : `${stations.length} stations found · ${pricedCount} with live prices`;
+      : `${pricedStations.length} station${pricedStations.length !== 1 ? 's' : ''} with live prices · ${noPriceStations.length} without`;
 }
 </script>
 </body>
