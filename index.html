@@ -34,6 +34,17 @@
   .refresh-btn { font-size: 13px; color: #888; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0; }
   .refresh-btn:hover { color: #333; }
   .last-updated { font-size: 12px; color: #aaa; }
+ 
+  /* Average banner */
+  .avg-banner { background: white; border: 1px solid #e0e0d8; border-radius: 12px; padding: 0.9rem 1.25rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+  .avg-left { display: flex; flex-direction: column; gap: 2px; }
+  .avg-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.4px; }
+  .avg-price { font-size: 26px; font-weight: 700; color: #1a1a1a; line-height: 1.1; }
+  .avg-fuel-label { font-size: 12px; color: #aaa; }
+  .avg-right { text-align: right; }
+  .avg-based-on { font-size: 12px; color: #999; }
+  .avg-range { font-size: 12px; color: #666; margin-top: 3px; }
+ 
   .station-list { display: flex; flex-direction: column; gap: 10px; }
   .station-card { background: white; border: 1px solid #e8e8e0; border-radius: 12px; padding: 1rem 1.25rem; position: relative; }
   .station-card.cheapest { border: 2px solid #2e7d32; }
@@ -51,6 +62,13 @@
   .rating { font-size: 12px; color: #888; }
   .maps-link { font-size: 12px; color: #1a73e8; text-decoration: none; }
   .maps-link:hover { text-decoration: underline; }
+ 
+  /* vs average tag */
+  .vs-avg { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin-top: 5px; display: inline-block; }
+  .vs-avg.below { background: #e8f5e9; color: #2e7d32; }
+  .vs-avg.above { background: #fce8e6; color: #c62828; }
+  .vs-avg.at { background: #f5f5f5; color: #777; }
+ 
   .results-status { font-size: 12px; color: #aaa; text-align: center; margin-top: 1rem; padding-bottom: 1rem; }
   .radius-results-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
   .radius-results-label { font-size: 13px; color: #666; }
@@ -69,7 +87,7 @@
   </div>
  
   <div id="main-view">
-    <button class="locate-btn" id="locateBtn" onclick="findGas()">
+    <button class="locate-btn" id="locateBtn" onclick="handleMainButton()">
       📍 Find cheapest gas near me
     </button>
     <div class="radius-row">
@@ -97,8 +115,22 @@
     </div>
     <div class="radius-results-row">
       <span class="radius-results-label">Within <strong id="radiusResultsLabel">5.0 miles</strong></span>
-      <button class="filter-btn" onclick="changeRadius()" style="font-size:12px; padding: 5px 12px;">Change radius</button>
+      <button class="filter-btn" onclick="changeRadius()">Change radius</button>
     </div>
+ 
+    <!-- Average banner -->
+    <div class="avg-banner" id="avgBanner" style="display:none;">
+      <div class="avg-left">
+        <span class="avg-label">Area average</span>
+        <span class="avg-price" id="avgPrice">—</span>
+        <span class="avg-fuel-label" id="avgFuelLabel">Regular</span>
+      </div>
+      <div class="avg-right">
+        <div class="avg-based-on" id="avgBasedOn"></div>
+        <div class="avg-range" id="avgRange"></div>
+      </div>
+    </div>
+ 
     <div class="filters">
       <button class="filter-btn active" id="sortPrice" onclick="setSort('price',this)">↑ Cheapest first</button>
       <button class="filter-btn" id="sortDist" onclick="setSort('distance',this)">📍 Nearest first</button>
@@ -110,7 +142,8 @@
  
 <script>
 const API_KEY = 'AIzaSyCppmZPSsry9rEW2EuEJ5oC7ERCkQGf2fo';
-let userLat, userLng, allStations = [], currentSort = 'price', currentFuel = 0, currentRadius = 5;
+let userLat = null, userLng = null, allStations = [], currentSort = 'price', currentFuel = 0, currentRadius = 5;
+let locationKnown = false;
 const fuelTypes = ['Regular', 'Midgrade', 'Premium', 'Diesel'];
 const fuelFields = ['regular', 'midgrade', 'premium', 'diesel'];
  
@@ -119,13 +152,25 @@ function updateRadiusDisplay(val) {
   document.getElementById('radiusDisplay').textContent = parseFloat(val).toFixed(1) + ' miles';
 }
  
+function handleMainButton() {
+  currentRadius = parseFloat(document.getElementById('radiusSlider').value);
+  if (locationKnown) {
+    searchWithCurrentLocation();
+  } else {
+    findGas();
+  }
+}
+ 
 function changeRadius() {
   document.getElementById('results-view').style.display = 'none';
   document.getElementById('main-view').style.display = 'block';
   document.getElementById('radiusSlider').value = currentRadius;
   document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
-  document.getElementById('locateBtn').disabled = false;
+  const btn = document.getElementById('locateBtn');
+  btn.disabled = false;
+  btn.textContent = '📍 Search this radius';
   document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status';
 }
  
 function setSort(type, btn) {
@@ -140,14 +185,20 @@ function setFuel(idx, btn) {
   document.querySelectorAll('.fuel-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderStations();
+  updateAverageBanner();
 }
  
 function refresh() {
+  locationKnown = false;
   document.getElementById('results-view').style.display = 'none';
   document.getElementById('main-view').style.display = 'block';
   document.getElementById('radiusSlider').value = currentRadius;
   document.getElementById('radiusDisplay').textContent = currentRadius.toFixed(1) + ' miles';
-  findGas();
+  const btn = document.getElementById('locateBtn');
+  btn.disabled = false;
+  btn.textContent = '📍 Find cheapest gas near me';
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status';
 }
  
 function haversine(lat1, lng1, lat2, lng2) {
@@ -173,6 +224,7 @@ function findGas() {
   navigator.geolocation.getCurrentPosition(async pos => {
     userLat = pos.coords.latitude;
     userLng = pos.coords.longitude;
+    locationKnown = true;
     status.textContent = 'Searching for nearby gas stations...';
     try { await fetchStations(); }
     catch(e) {
@@ -186,6 +238,21 @@ function findGas() {
     status.textContent = 'Location access denied. Please allow location access and try again.';
     btn.disabled = false;
   }, { enableHighAccuracy: true, timeout: 10000 });
+}
+ 
+async function searchWithCurrentLocation() {
+  const btn = document.getElementById('locateBtn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'Searching with new radius...';
+  try { await fetchStations(); }
+  catch(e) {
+    console.error(e);
+    status.className = 'status error';
+    status.textContent = 'Error: ' + (e.message || 'Could not fetch stations. Please try again.');
+    btn.disabled = false;
+  }
 }
  
 async function fetchStations() {
@@ -238,12 +305,40 @@ async function fetchStations() {
       prices
     };
   });
+ 
   document.getElementById('radiusResultsLabel').textContent = currentRadius.toFixed(1) + ' miles';
+  const btn = document.getElementById('locateBtn');
+  btn.textContent = '📍 Find cheapest gas near me';
   buildFuelSelector();
+  updateAverageBanner();
   document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   document.getElementById('main-view').style.display = 'none';
   document.getElementById('results-view').style.display = 'block';
   renderStations();
+}
+ 
+function calculateAverage() {
+  const field = fuelFields[currentFuel];
+  const priced = allStations.filter(s => s.prices[field] !== null).map(s => s.prices[field]);
+  if (priced.length === 0) return null;
+  const avg = priced.reduce((a, b) => a + b, 0) / priced.length;
+  const min = Math.min(...priced);
+  const max = Math.max(...priced);
+  return { avg, min, max, count: priced.length };
+}
+ 
+function updateAverageBanner() {
+  const banner = document.getElementById('avgBanner');
+  const stats = calculateAverage();
+  if (!stats) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'flex';
+  document.getElementById('avgPrice').textContent = '$' + stats.avg.toFixed(2);
+  document.getElementById('avgFuelLabel').textContent = fuelTypes[currentFuel];
+  document.getElementById('avgBasedOn').textContent = `Based on ${stats.count} station${stats.count !== 1 ? 's' : ''}`;
+  document.getElementById('avgRange').textContent = `Range: $${stats.min.toFixed(2)} – $${stats.max.toFixed(2)}`;
 }
  
 function buildFuelSelector() {
@@ -255,7 +350,9 @@ function buildFuelSelector() {
  
 function renderStations() {
   const field = fuelFields[currentFuel];
+  const stats = calculateAverage();
   let stations = [...allStations];
+ 
   if (currentSort === 'price') {
     const withPrice = stations.filter(s => s.prices[field] !== null).sort((a,b) => a.prices[field] - b.prices[field]);
     const noPrice = stations.filter(s => s.prices[field] === null).sort((a,b) => a.distance - b.distance);
@@ -263,11 +360,28 @@ function renderStations() {
   } else {
     stations.sort((a,b) => a.distance - b.distance);
   }
+ 
   const pricedCount = stations.filter(s => s.prices[field] !== null).length;
+ 
   document.getElementById('stationList').innerHTML = stations.map((s, i) => {
     const isCheapest = i === 0 && s.prices[field] !== null && currentSort === 'price';
     const price = s.prices[field];
     const dist = s.distance < 0.2 ? (s.distance * 5280).toFixed(0) + ' ft' : s.distance.toFixed(1) + ' mi';
+ 
+    // vs average tag
+    let vsAvgHtml = '';
+    if (price !== null && stats) {
+      const diff = price - stats.avg;
+      const absDiff = Math.abs(diff).toFixed(2);
+      if (Math.abs(diff) < 0.01) {
+        vsAvgHtml = `<span class="vs-avg at">≈ Area average</span>`;
+      } else if (diff < 0) {
+        vsAvgHtml = `<span class="vs-avg below">💰 $${absDiff} below average</span>`;
+      } else {
+        vsAvgHtml = `<span class="vs-avg above">⬆ $${absDiff} above average</span>`;
+      }
+    }
+ 
     return `<div class="station-card${isCheapest?' cheapest':''}">
       ${isCheapest ? '<span class="cheapest-badge">✓ Cheapest nearby</span>' : ''}
       <div class="station-top">
@@ -281,6 +395,7 @@ function renderStations() {
             : `<div class="no-price">Price<br>unknown</div>`}
         </div>
       </div>
+      ${vsAvgHtml ? `<div style="margin-top:6px;">${vsAvgHtml}</div>` : ''}
       <div class="station-bottom">
         <span class="distance">📍 ${dist} away</span>
         <div class="bottom-right">
@@ -290,6 +405,7 @@ function renderStations() {
       </div>
     </div>`;
   }).join('');
+ 
   document.getElementById('resultsStatus').textContent =
     pricedCount === 0
       ? `${stations.length} stations found — live prices not yet available in this area. Try refreshing.`
